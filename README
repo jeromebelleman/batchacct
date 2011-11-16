@@ -1,0 +1,7 @@
+Batch Accounting
+================
+
+A set of utilities to collect batch accounting data, store them
+in a database and publish them for display on an accounting portal.
+It also includes various tools to perform some batch monitoring, produce
+statistics, generate reports and draw plots from accounting information.
