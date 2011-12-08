@@ -1,0 +1,4 @@
+site           MYSITE
+unit           SpecInt2000
+factorConstant 10
+fields         Site SubmitHost LocalJobID LocalUserID GlobalUserName UserFQAN WallDuration CpuDuration Processors NodeCount StartTime EndTime MemoryReal MemoryVirtual ScalingFactorUnit ScalingFactor
