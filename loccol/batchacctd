@@ -1,0 +1,46 @@
+#! /bin/sh
+#
+# chkconfig: 35 99 01
+# description: Collects finished batch job event records
+
+. /etc/init.d/functions
+
+PIDFILE=/var/run/batchacct/batchacctd.pid
+LOGFILE=/var/log/batchacct/batchacctd.log
+USER=root
+
+start () {
+    echo -n "Starting accounting daemon: "
+    daemon --pidfile $PIDFILE --user $USER \
+        python /usr/lib/python2.4/site-packages/batchacct/acct.py \
+        -c /etc/batchacct/connection \
+        -a /tmp/batchacct/lsb.acct \
+        -l $LOGFILE \
+        -p $PIDFILE
+    echo
+}
+
+stop () {
+    echo -n "Stopping accounting daemon: "
+    killproc -p $PIDFILE
+    echo
+}
+
+case "$1" in
+    start)
+        start
+    ;;
+    stop)
+        stop
+    ;;
+    restart)
+        stop
+        start
+    ;;
+    *)
+
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+esac
+
+exit 0
