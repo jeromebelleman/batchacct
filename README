@@ -5,3 +5,33 @@ A set of utilities to collect batch accounting data, store them
 in a database and publish them for display on an accounting portal.
 It also includes various tools to perform some batch monitoring, produce
 statistics, generate reports and draw plots from accounting information.
+
+Description
+-----------
+The different components (`common`, `loccol`, `cecol`, `pub`, `cpuhours`)
+are organised in Python modules sharing the `batchacct` Python package:
+
+- the `common` component contains the `common.py` module providing the
+  routines, constants and DB table schema information shared by the other
+  modules;
+- the `loccol` component provides the `acct.py` module, a daemon collecting
+  data from accounting files to send them to the DB, and `create.py`, a
+  tool to create the accounting DB tables and useful indices;
+- the `cecol` component provides the `whisk.py` module, a daemon collecting
+  data from CE BLAH files to send them to the DB;
+- the `pub` component provides the `join.py` module which, when periodically
+  run as a cron job, joins the data collected by the `loccol` and `cecol`
+  components before publishing them for display on the accounting portal;
+- the `cpuhours` component contains the `cpuhours.py` module which
+  provides tools to plot information based on the accounting data stored in
+  the DB.
+
+Typical Setup
+-------------
+The `common`, `loccol`, `cecol` and `pub` components are typically RPM-packaged
+by subsequently running `make`&nbsp;`sdist` and `make`&nbsp;`rpm`.
+
+The `cpuhours` component isn't provided with any packaging yet and you may want
+to set your Python path to include the path to the `common` component package
+to be able to use it (e.g.&nbsp;by changing and exporting your `PYTHONPATH`
+environment variable accordingly) if you haven't RPM-installed `common`.
