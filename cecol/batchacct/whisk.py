@@ -57,6 +57,8 @@ class EventHandler(pyinotify.ProcessEvent):
         self.errorc = 0
         self.offset = 0
 
+        self.buf = '' # To handle improperly flushed lines
+
     def process_IN_MODIFY(self, event):
         '''
         Handles a file modification event, typically when one or more event

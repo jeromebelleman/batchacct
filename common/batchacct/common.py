@@ -524,14 +524,15 @@ def insert(logger, tab, recs, connection, insertc, errorc,
 
     for rec in recs:
         # Evaluate against actual value to see what we're up against
-        for c in tab[:slice]:
-            c.eval(rec)
-
-        fmt = 'INSERT INTO %s VALUES (%s)'
-        stmt = fmt % (tab, ', '.join([c.param for c in tab[:slice]]))
-
-        l = filter(lambda v: v is not None, [c.val for c in tab[:slice]])
         try:
+            for c in tab[:slice]:
+                c.eval(rec)
+
+            fmt = 'INSERT INTO %s VALUES (%s)'
+            stmt = fmt % (tab, ', '.join([c.param for c in tab[:slice]]))
+
+            l = filter(lambda v: v is not None, [c.val for c in tab[:slice]])
+
             cursor.execute(stmt, l)
             insertc += 1
         except cx_Oracle.DatabaseError, e:
@@ -552,6 +553,10 @@ def insert(logger, tab, recs, connection, insertc, errorc,
                 #    print "%s %s '%s'" % (c.col, c.type, str(c.val)[:60])
                 #print
             errorc += 1
+        except KeyError, e:
+            # When you miss out keys when reading unflushed BLAH files
+            # (Shouldn't happen any more, though)
+            logger.error("%s: probably unflushed record for %s", (e, rec))
         except Exception, e:
             logger.error(INSERTERR % e)
             errorc += 1
@@ -809,30 +814,42 @@ def parse(fileobj, evthdl=None):
             # generator itself.
             fileobj.next()
 
-    for l in fileobj: # For each new line
-        fields = {}
-        for f in RERECORD.findall(l): # For each field
-            k, v = f.split('=', 1)
-            if k == USERFQAN: 
-                # The userFQAN fields deserves some special treatment as
-                # there can be several of these and they have to be listed
-                if USERFQAN in fields:
-                    fields[USERFQAN] += ' ' + v
-                else:
-                    fields[USERFQAN] = v
-            elif k == TIMESTAMP: 
-                # The timestamp field also deserves some special treatment
-                # because it needs parsing
-                fields[k] = time.mktime(time.strptime(v, TFMT))
-            elif k == LRMSID:
-                # The lrmsID also also deserves some special treatment as I
-                # need it to be a real int. (Before you know it, everything
-                # will need some special treatment.)
-                fields[k] = int(v)
-            else:
-                fields[k] = v
+    while True:
+        l = fileobj.readline() # Not a for loop because we need to keep newlines
+        if len(l) == 0:
+            break
+        else:
+            if l[-1] == '\n': # If it's a whole line...
+                # ... proceed as usual in yielding the resulting dictionary
+                fields = {}
+                for f in RERECORD.findall(evthdl.buf + l): # For each field
+                    k, v = f.split('=', 1)
+                    if k == USERFQAN: 
+                        # The userFQAN fields deserves some special treatment
+                        # as there can be several of these and they have to
+                        # be listed
+                        if USERFQAN in fields:
+                            fields[USERFQAN] += ' ' + v
+                        else:
+                            fields[USERFQAN] = v
+                    elif k == TIMESTAMP: 
+                        # The timestamp field also deserves some special
+                        # treatment because it needs parsing
+                        fields[k] = time.mktime(time.strptime(v, TFMT))
+                    elif k == LRMSID:
+                        # The lrmsID also also deserves some special treatment
+                        # as I need it to be a real int. (Before you know it,
+                        # everything will need some special treatment.)
+                        fields[k] = int(v)
+                    else:
+                        fields[k] = v
 
-        # Yield the resulting dictionary
-        if evthdl is not None:
-            evthdl.offset += 1
-        yield fields
+                # Yield the resulting dictionary
+                if evthdl is not None:
+                    evthdl.offset += 1
+                yield fields
+
+                evthdl.buf = ''
+            else: # If it's not a whole line...
+                # ... buffer it for later on
+                evthdl.buf = l
