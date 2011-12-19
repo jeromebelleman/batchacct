@@ -764,13 +764,10 @@ def connect(logger, connfile):
 
 def accounting(logger, acctfile):
     '''
-    Set up PyLSF and get event record iterator (i.e. no actual records yet).
+    Set up PyLSF and return accounting file name.
 
-    Expects an accounting log file name (which defaults to 'lsb.acct')
-    and returns a tuple made of
-    - the accounting log file name that has been decided upon (for book
-      keeping purposes);
-    - the event record iterator.
+    Expects a logger and an accounting log file name. Returns the accounting
+    log file name that has been decided upon (for book keeping purposes).
     '''
     import pylsf
 
@@ -788,15 +785,7 @@ def accounting(logger, acctfile):
         logger.info("No accounting file suggested")
         logger.info("Opening default acct file: %s" % acctfile)
 
-    # Segfaults if file doesn't exist -- No exception thrown here
-    if os.path.isfile(acctfile):
-        # Open acct file for the first time (and probably not the last one)
-        return acctfile, pylsf.lsb_geteventrec(acctfile)
-    else:
-        # Report to log
-        strerr = "No such file or directory"
-        logger.error("Couldn't open acct file: %s" % strerr)
-        raise MissingAcctError(acctfile)
+    return acctfile
 
 def parse(fileobj, evthdl=None):
     '''

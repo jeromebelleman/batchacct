@@ -31,8 +31,8 @@ class EventHandler(pyinotify.ProcessEvent):
     it is renamed and a new file with the original name is created).
     '''
 
-    def __init__(self, logger, acctfile, recs,
-                 connection, heartbeatdelta=common.HBDELTA, dryrun=False):
+    def __init__(self, logger, acctfile, connection,
+                 heartbeatdelta=common.HBDELTA, dryrun=False):
         '''
         Instantiation method.
         
@@ -42,7 +42,7 @@ class EventHandler(pyinotify.ProcessEvent):
         '''
 
         self.acctfile = acctfile
-        self.recs = recs
+        self.recs = None
         self.connection = connection
         self.logger = logger
         self.insertc = 0
@@ -62,6 +62,17 @@ class EventHandler(pyinotify.ProcessEvent):
             if self.dryrun:
                 self.logger.info("Would normally send records")
             else:
+                if self.recs == None:
+                    # Segfaults if file doesn't exist -- No exception thrown
+                    if os.path.isfile(self.acctfile):
+                        self.recs = pylsf.lsb_geteventrec(self.acctfile)
+                    else:
+                        # Report to log
+                        fmt = "Couldn't open acct file: %s"
+                        strerr = "No such file or directory"
+                        self.logger.error(fmt % strerr)
+                        return
+
                 insertc, errorc, heartbeat = common.insert(self.logger,
                                                            common.LOCALTAB,
                                                            self.recs,
@@ -108,7 +119,7 @@ class EventHandler(pyinotify.ProcessEvent):
             # inodes, not file names.
             if self.dryrun:
                 self.logger.info("Would normally send records")
-            else:
+            elif self.recs != None:
                 insertc, errorc, heartbeat = common.insert(self.logger,
                                                            common.LOCALTAB,
                                                            self.recs,
@@ -185,7 +196,7 @@ def main():
             connection = common.connect(logger, options.connfile)
 
         # Set up LSF
-        acctfile, recs = common.accounting(logger, options.acctfile)
+        acctfile = common.accounting(logger, options.acctfile)
     except common.AcctDBError, e:
         logger.error(e)
         return 1
@@ -193,7 +204,7 @@ def main():
     # Set up pyinotify
     logger.info("Pyinotify will be watching %s" % acctfile)
     wm = pyinotify.WatchManager()
-    handler = EventHandler(logger, acctfile, recs, connection,
+    handler = EventHandler(logger, acctfile, connection,
                            options.heartbeatdelta, options.dryrun)
     notifier = pyinotify.Notifier(wm, handler)
 
