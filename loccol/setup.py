@@ -13,8 +13,11 @@ In short: suitable only for python setup.py bdist_rpm
 setup(name='batchacct-loccol',
       description='Batch Accounting - Local Collection',
       version='1.1',
-      py_modules=['batchacct.acct', 'batchacct.create'],
-      data_files=[('/etc/init.d', ['batchacctd'])],
+      py_modules=['batchacct.acct', 'batchacct.create', 'batchacct.partition'],
+      data_files=[
+                  ('/etc/init.d', ['batchacctd']),
+                  ('/etc/cron.d', ['batchacct-partition.cron']),
+                 ],
       options={'bdist_rpm': {'post_install':  'post_install',
                              'pre_uninstall': 'pre_uninstall'}}
      )

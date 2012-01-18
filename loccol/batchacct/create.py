@@ -27,6 +27,7 @@ the table referred to with -n into account if specified)"""
     help="don't do anything, only SQL-print what would be done"
     p.add_option("-d", "--dryrun", action='store_true', help=help)
     p.add_option("-u", "--tablespace", help="index table space")
+    p.add_option("-p", "--partition", type='int', help="partition")
     options, args = p.parse_args()
 
     # Set up logging
@@ -45,7 +46,8 @@ the table referred to with -n into account if specified)"""
                                        options.onlyindices,
                                        options.noindices,
                                        options.name, options.slice,
-                                       options.tablespace)
+                                       options.tablespace,
+                                       options.partition)
 
             connection = common.connect(logger, options.connfile)
             cursor = connection.cursor()

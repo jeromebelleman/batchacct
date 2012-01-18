@@ -1,0 +1,3 @@
+# Monthly check DB table partitioning and add extra partitions if needed
+
+42 10 17 * * root python /usr/lib/python2.4/site-packages/batchacct/partition.py --connfile /etc/batchacct/connection --table loc --logfile /var/log/batchacct/batchacct-partition.log

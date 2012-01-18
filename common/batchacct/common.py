@@ -5,7 +5,7 @@ import sys
 import re
 import time
 import logging
-import datetime
+from datetime import datetime, timedelta, date
 import cx_Oracle
 
 RE = "^(?P<username>[^/]+)/(?P<password>[^@]+)@(?P<dsn>.+)$"
@@ -253,9 +253,9 @@ def ots(unixts, nullable=False):
     if unixts <= 0 and nullable:
         return None
     elif unixts <= 0 and not nullable:
-        return datetime.datetime.fromtimestamp(0)
+        return datetime.fromtimestamp(0)
     else:
-        return datetime.datetime.fromtimestamp(unixts)
+        return datetime.fromtimestamp(unixts)
 
 def offsetOts(unixts, nullable=False):
     '''
@@ -268,9 +268,9 @@ def offsetOts(unixts, nullable=False):
         return t
     elif unixts <= 0:
         # Oracle Epoch's seems to be at midnight, not 1 o'clock
-        return t - datetime.timedelta(hours=1)
+        return t - timedelta(hours=1)
     else:
-        return t - datetime.timedelta(hours=2)
+        return t - timedelta(hours=2)
 
 def overflow(v):
     '''
@@ -507,7 +507,7 @@ def daemonise(logger, pidfile):
         raise DaemonError()
 
 def insert(logger, tab, recs, connection, insertc, errorc, 
-           heartbeat=datetime.datetime.today(), heartbeatdelta=HBDELTA, 
+           heartbeat=datetime.today(), heartbeatdelta=HBDELTA, 
            slice=None):
     '''
     Insert new rows into database.
@@ -566,11 +566,11 @@ def insert(logger, tab, recs, connection, insertc, errorc,
     except Exception, e:
         logger.error(COMMITERR % e)
 
-    t = datetime.datetime.today()
-    if t - heartbeat > datetime.timedelta(minutes=heartbeatdelta):
+    t = datetime.today()
+    if t - heartbeat > timedelta(minutes=heartbeatdelta):
         fmt = "Inserted %d records in the last %d minutes"
         logger.info(fmt % (insertc, heartbeatdelta))
-        heartbeat = datetime.datetime.today()
+        heartbeat = datetime.today()
         insertc = 0
     return insertc, errorc, heartbeat
 
@@ -631,7 +631,7 @@ def shortid(cols, prefix):
         return prefix + '_'.join(cols)
 
 def createstmts(tab, onlyidxs=False, noidxs=False, name=None, slice=None,
-                idxspace=None):
+                idxspace=None, partition=None):
     '''
     Create string for table and index CREATE statements.
 
@@ -652,7 +652,18 @@ def createstmts(tab, onlyidxs=False, noidxs=False, name=None, slice=None,
     if not onlyidxs:
         fmt = 'CREATE TABLE %s (%s)'
         l = ['%s %s' % (c.col, c.type) for c in tab[:slice]]
-        stmts.append(fmt % (tab, ', '.join(l)))
+
+        if partition == None:
+            partclause = ""
+        else:
+            d = date.fromtimestamp(partition)
+            partclause = "PARTITION BY RANGE(eventTime)"
+            partclause += " (PARTITION %s%d VALUES LESS THAN" % \
+                (name, partition)
+            # Can't do it with parameters it seems
+            partclause += " (TO_DATE('%s', 'YYYY/MM/DD')))" % \
+                d.strftime('%Y-%m-%d')
+        stmts.append(fmt % (tab, ', '.join(l)) + partclause)
 
     # Any indices?
     if not noidxs:

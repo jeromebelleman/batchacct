@@ -39,6 +39,7 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root,-)
 %{python_sitelib}/*
 %{_sysconfdir}/init.d/batchacctd
+%{_sysconfdir}/cron.d/batchacct-partition.cron
 %doc
 
 
