@@ -97,7 +97,7 @@ def main():
     last = lastpartition(cursor, options.table)
     stmts, months = createpartitions(options.table.upper(), last, options.plan)
     for stmt, month in izip(stmts, months):
-        logger.info("Adding partition for %s" % month)
+        logger.info("Adding partition for %s to %s" % (month, options.table))
         logger.info(stmt)
         if not options.dryrun:
             cursor.execute(stmt)

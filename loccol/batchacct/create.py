@@ -27,13 +27,25 @@ the table referred to with -n into account if specified)"""
     help="don't do anything, only SQL-print what would be done"
     p.add_option("-d", "--dryrun", action='store_true', help=help)
     p.add_option("-u", "--tablespace", help="index table space")
-    p.add_option("-p", "--partition", type='int', help="partition")
+    help = "partition (column,timestamp) pair (e.g. eventTime,1306879200)"
+    p.add_option("-p", "--partition", help=help)
     options, args = p.parse_args()
 
     # Set up logging
     #fmt = "%(asctime)s %(name)s: %(levelname)s %(message)s"
     #logging.basicConfig(level=logging.INFO, format=fmt)
     logger = logging.getLogger(common.LOGGER)
+
+    # Check partition argument if any
+    if options.partition == None:
+        partition = None
+    else:
+        try:
+            partition = options.partition.split(',')
+            partition[1] = int(partition[1])
+        except (IndexError, ValueError):
+            p.print_help()
+            return 1
 
     if options.listtabs:
         for t in common.TABS:
@@ -47,7 +59,7 @@ the table referred to with -n into account if specified)"""
                                        options.noindices,
                                        options.name, options.slice,
                                        options.tablespace,
-                                       options.partition)
+                                       partition)
 
             connection = common.connect(logger, options.connfile)
             cursor = connection.cursor()
@@ -62,4 +74,4 @@ the table referred to with -n into account if specified)"""
         return
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

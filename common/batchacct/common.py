@@ -656,10 +656,11 @@ def createstmts(tab, onlyidxs=False, noidxs=False, name=None, slice=None,
         if partition == None:
             partclause = ""
         else:
-            d = date.fromtimestamp(partition)
-            partclause = "PARTITION BY RANGE(eventTime)"
-            partclause += " (PARTITION %s%d VALUES LESS THAN" % \
-                (name, partition)
+            col, t = partition
+
+            d = date.fromtimestamp(t)
+            partclause = " PARTITION BY RANGE(%s)" % col
+            partclause += " (PARTITION %s%d VALUES LESS THAN" % (name, t)
             # Can't do it with parameters it seems
             partclause += " (TO_DATE('%s', 'YYYY/MM/DD')))" % \
                 d.strftime('%Y-%m-%d')

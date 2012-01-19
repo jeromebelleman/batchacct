@@ -3,7 +3,7 @@
 
 Name:           batchacct-common
 Version:        1.1
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Batch Accounting - Common Files
 
 Group:          Development/Languages
