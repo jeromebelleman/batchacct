@@ -95,21 +95,31 @@ class EventHandler(pyinotify.ProcessEvent):
             logger.error(e)
             raise
 
-        # Flush any missed out records into the DB
-        f = open(self.acctdir + '/' + self.acctfile)
-        recs = common.parse(f, self)
 
-        insertc, errorc, heartbeat = common.insert(self.logger, common.CETAB,
-                                                   recs, self.connection,
-                                                   self.insertc, self.errorc,
-                                                   self.heartbeat,
-                                                   self.heartbeatdelta)
+        try:
+            # Flush any missed out records into the DB
+            f = open(self.acctdir + '/' + self.acctfile)
+            recs = common.parse(f, self)
 
-        f.close()
+            insertc, errorc, heartbeat = common.insert(self.logger,
+                                                       common.CETAB, recs,
+                                                       self.connection,
+                                                       self.insertc,
+                                                       self.errorc,
+                                                       self.heartbeat,
+                                                       self.heartbeatdelta)
 
-        self.insertc = insertc
-        self.errorc = errorc
-        self.heartbeat = heartbeat
+            f.close()
+
+            self.insertc = insertc
+            self.errorc = errorc
+            self.heartbeat = heartbeat
+        except IOError:
+            # Can happen when the previous file has been renamed
+            # FIXME Maybe an IN_MOVED_FROM event should be notified for this
+            #       case but it may later altogether no longer be necessary at
+            #       all what with what I'm up to.
+            pass
 
         # Set last modified file
         self.acctfile = latest(self.acctdir)

@@ -556,7 +556,7 @@ def insert(logger, tab, recs, connection, insertc, errorc,
         except KeyError, e:
             # When you miss out keys when reading unflushed BLAH files
             # (Shouldn't happen any more, though)
-            logger.error("%s: probably unflushed record for %s", (e, rec))
+            logger.error("%s: probably unflushed record for %s" % (e, rec))
         except Exception, e:
             logger.error(INSERTERR % e)
             errorc += 1
@@ -815,11 +815,9 @@ def parse(fileobj, evthdl=None):
             # generator itself.
             fileobj.next()
 
-    while True:
-        l = fileobj.readline() # Not a for loop because we need to keep newlines
-        if len(l) == 0:
-            break
-        else:
+    while True: # Not a for loop because we need to keep newlines
+        l = fileobj.next()
+        try:
             if l[-1] == '\n': # If it's a whole line...
                 # ... proceed as usual in yielding the resulting dictionary
                 fields = {}
@@ -854,3 +852,5 @@ def parse(fileobj, evthdl=None):
             else: # If it's not a whole line...
                 # ... buffer it for later on
                 evthdl.buf = l
+        except StopIteration:
+            pass
