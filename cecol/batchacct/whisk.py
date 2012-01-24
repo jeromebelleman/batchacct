@@ -44,11 +44,11 @@ class EventHandler(pyinotify.ProcessEvent):
     # there looking at the same file all the time because there's no log 
     # rotation). I can't really just refactor things around.
 
-    def __init__(self, logger, acctdir, acctfile,
-                 connection, heartbeatdelta=common.HBDELTA):
+    def __init__(self, logger, acctdir, connection,
+                 heartbeatdelta=common.HBDELTA):
         self.logger = logger
         self.acctdir = acctdir
-        self.acctfile = acctfile
+        self.acctfile = None
         self.connection = connection
         self.heartbeatdelta = heartbeatdelta
 
@@ -61,72 +61,78 @@ class EventHandler(pyinotify.ProcessEvent):
 
     def process_IN_MODIFY(self, event):
         '''
-        Handles a file modification event, typically when one or more event
-        records have been appended to the accounting file. The new records
-        are sent to the database here.
+        Handles a file modification event in currently-read files as well as
+        in newly-created ones, typically when one or more event records have
+        been appended to the accounting file. The new records are sent to the
+        database here.
         '''
 
-        f = open(self.acctdir + '/' + self.acctfile)
-        recs = common.parse(f, self)
-
-        insertc, errorc, heartbeat = common.insert(self.logger, common.CETAB,
-                                                   recs, self.connection,
-                                                   self.insertc, self.errorc,
-                                                   self.heartbeat,
-                                                   self.heartbeatdelta)
-
-        f.close()
-
-        self.insertc = insertc
-        self.errorc = errorc
-        self.heartbeat = heartbeat
-
-    def process_IN_CREATE(self, event):
-        '''
-        Handles a file creation event, which happens pretty much every day. 
-        The previously read BLAH file is closed and the new one reopened.
-        '''
+        # Issue: not sure how to deal with the currently-read file if it gets
+        # overwritten. Two options:
+        # 1. The file pointer should be reset because it's a new file
+        #    altogether.
+        # 2. The file pointer shouldn't be reset because it's the same data
+        #    which has been overwritten in the process of being added new lines
+        #    (e.g. vi).
+        # Let's go for the second option, which the following does without even
+        # needing any CREATE event.
 
         try:
             l = latest(self.acctdir)
             if l == self.acctfile:
-                return
-        except common.AcctError, e:
-            logger.error(e)
-            raise
+                # There's no new accounting file
 
+                f = open(self.acctdir + '/' + l)
+                recs = common.parse(f, self)
 
-        try:
-            # Flush any missed out records into the DB
-            f = open(self.acctdir + '/' + self.acctfile)
-            recs = common.parse(f, self)
+                insertc, errorc, heartbeat = \
+                    common.insert(self.logger, common.CETAB, recs,
+                                  self.connection, self.insertc, self.errorc,
+                                  self.heartbeat, self.heartbeatdelta)
+                f.close()
 
-            insertc, errorc, heartbeat = common.insert(self.logger,
-                                                       common.CETAB, recs,
-                                                       self.connection,
-                                                       self.insertc,
-                                                       self.errorc,
-                                                       self.heartbeat,
-                                                       self.heartbeatdelta)
+                self.insertc = insertc
+                self.errorc = errorc
+                self.heartbeat = heartbeat
+            else:
+                # There's a new accounting file (or we weren't reading any)
 
-            f.close()
+                # Finish reading the current one if we were reading one
+                if self.acctfile != None:
+                    f = open(self.acctdir + '/' + self.acctfile)
+                    recs = common.parse(f, self)
 
-            self.insertc = insertc
-            self.errorc = errorc
-            self.heartbeat = heartbeat
-        except IOError:
-            # Can happen when the previous file has been renamed
-            # FIXME Maybe an IN_MOVED_FROM event should be notified for this
-            #       case but it may later altogether no longer be necessary at
-            #       all what with what I'm up to.
+                    insertc, errorc, heartbeat = \
+                        common.insert(self.logger, common.CETAB, recs,
+                                      self.connection, self.insertc,
+                                      self.errorc, self.heartbeat,
+                                      self.heartbeatdelta)
+                    f.close()
+
+                    self.insertc = insertc
+                    self.errorc = errorc
+                    self.heartbeat = heartbeat
+
+                # Read the new one
+                self.acctfile = l
+                self.offset = 0
+                self.logger.info("Will now be watching %s" % self.acctfile)
+
+                f = open(self.acctdir + '/' + self.acctfile)
+                recs = common.parse(f, self)
+
+                insertc, errorc, heartbeat = \
+                    common.insert(self.logger, common.CETAB, recs,
+                                  self.connection, self.insertc, self.errorc,
+                                  self.heartbeat, self.heartbeatdelta)
+                f.close()
+
+                self.insertc = insertc
+                self.errorc = errorc
+                self.heartbeat = heartbeat
+        except common.AcctError: # As raised by latest
+            # No need to fuss if a file we're not interested in gets changed
             pass
-
-        # Set last modified file
-        self.acctfile = latest(self.acctdir)
-        self.offset = 0
-
-        # Report
-        self.logger.info("Pyinotify will now be watching %s" % self.acctfile)
 
 def getjobs(ora, my, cetable):
     '''
@@ -303,17 +309,10 @@ each CE's DB)"""
             # Set up accounting DB connection
             connection = common.connect(logger, options.connfile)
 
-            # Open accounting file
-            try:
-                l = latest(options.acctdir)
-            except OSError, e:
-                logger.error(e)
-                raise
-
             # Set up pyinotify
-            logger.info("Pyinotify will be watching %s" % l)
+            logger.info("Will be watching %s" % options.acctdir)
             wm = pyinotify.WatchManager()
-            handler = EventHandler(logger, options.acctdir, l, connection,
+            handler = EventHandler(logger, options.acctdir, connection,
                                    options.heartbeatdelta)
             notifier = pyinotify.Notifier(wm, handler)
 
@@ -321,7 +320,7 @@ each CE's DB)"""
             # new files with a new name are simply created. Therefore, we're
             # only interested in file changes (i.e. files being appended
             # new records) and file creation -- not file moves.
-            wm.add_watch(options.acctdir, IN_MODIFY | IN_CREATE)
+            wm.add_watch(options.acctdir, IN_MODIFY)
 
             # Loop and dispatch events forever
             notifier.loop()
