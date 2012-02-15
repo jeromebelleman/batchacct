@@ -3,7 +3,7 @@
 
 Name:           batchacct-cecol
 Version:        1.1
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Batch Accounting - CE Collection
 
 Group:          Development/Languages
