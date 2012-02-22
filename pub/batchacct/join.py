@@ -187,7 +187,7 @@ def main():
 
     try:
         # Set configuration
-        conf = CONF
+        conf = {}
         if options.conf:
             f = open(options.conf, 'r')
             for l in f:
