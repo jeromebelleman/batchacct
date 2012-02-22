@@ -14,7 +14,7 @@ start () {
     daemon --pidfile $PIDFILE --user $USER \
         python /usr/lib/python2.4/site-packages/batchacct/whisk.py \
         -c /etc/batchacct/connection \
-        -a /opt/glite/var/log/accounting \
+        -a /var/log/cream/accounting \
         -l $LOGFILE \
         -p $PIDFILE
     echo

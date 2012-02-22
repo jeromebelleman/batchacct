@@ -13,7 +13,7 @@ Source0:        batchacct/batchacct-pub-%{version}.tar.gz
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 BuildArch:      noarch
-Requires:       python-inotify cx_Oracle python-pylsf batchacct-common apel-ssm
+Requires:       python-inotify cx_Oracle python-pylsf batchacct-common ssm
 
 %description
 
