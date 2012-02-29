@@ -75,20 +75,18 @@ def labels(plt, count, walltime, waiting, cumuwaiting, started, nonorm):
         plt.ylabel('normalised HEPSPEC06 (days)')
     plt.axis(ymin=0)
 
-def mktitle(title, what, fromhosts):
+def mktitle(title, what, users, fromhosts):
     '''
-    Return suitable title based on what and fromhosts arguments if the title
-    passed as first is None.
+    Return suitable title based on what, users and fromhosts arguments if the
+    title passed as first is None.
     '''
+
+    crits = '-'.join([e for e in (what, users, fromhosts) if e != None])
 
     if title != None:
         return title
-    elif None not in (what, fromhosts):
-        return what + '-' + fromhosts
-    elif what != None:
-        return what
-    elif fromhosts != None:
-        return fromhosts
+    elif crits:
+        return crits
     else:
         return 'everything'
 
@@ -104,7 +102,7 @@ def mkplan(cursor, stmt):
     cursor.execute(explain)
     common.ftab(list(cursor), PLANCOLS)
 
-# FIXME Could probably make mkcritcond and mkhostcond into a single,
+# FIXME Could probably make mkcritcond and mkcond into a single,
 # more generic function.
 
 def mkcritcond(crits):
@@ -146,37 +144,37 @@ def mkcritcond(crits):
                                              in izip(labels, enumerate(cops))])
     return critcond, crits
 
-def mkhostcond(hosts):
+def mkcond(items, column):
     '''
-    Return host statement and parameters from host list passed as argument.
+    Return statement and parameters from item list and column name passed as
+    argument.
     '''
 
-    # Submit hosts (which may be a comma-separated list or a file with a
+    # Items (which may be a comma-separated list or a file with a
     # commma-separated list)
-    if hosts == None:
-        hostcond, hosts = '', []
+    if items == None:
+        itemcond, items = '', []
     else:
-        if os.path.isfile(hosts):
-            f = open(hosts)
-            hosts = f.read().split(',')
+        if os.path.isfile(items):
+            f = open(items)
+            items = f.read().split(',')
             f.close()
         else:
-            hosts = hosts.split(',')
+            items = items.split(',')
 
-        # fops = ('LIKE' if '%' in h else '=' for h in hosts)
         fops = []
-        for h in hosts:
+        for h in items:
             if '%' in h:
                 fops.append('LIKE')
             else:
                 fops.append('=')
                 
-        hostcond = " AND (%s)" % ' OR '.join(['fromHost %s :f%d' % (op, i)
+        itemcond = " AND (%s)" % ' OR '.join(['%s %s :f%d' % (column, op, i)
                                               for i, op in enumerate(fops)])
-    return hostcond, hosts
+    return itemcond, items
 
-def waitdistdbread(logger, connfile, table, begin, end, crits,
-                   hosts, title, plan, norm):
+def waitdistdbread(logger, connfile, table, begin, end, crits, users, hosts,
+                   title, plan, norm):
     '''
     Connect to DB, run query and store x values into a list which is returned.
 
@@ -193,7 +191,10 @@ def waitdistdbread(logger, connfile, table, begin, end, crits,
     critcond, crits = mkcritcond(crits)
 
     # Submit hosts
-    hostcond, hosts = mkhostcond(hosts)
+    hostcond, hosts = mkcond(hosts, 'fromHost')
+
+    # Users
+    usercond, users = mkcond(users, 'userName')
 
     # Normalisation factor
     if norm == None:
@@ -213,8 +214,8 @@ def waitdistdbread(logger, connfile, table, begin, end, crits,
 
     # Statement
     stmt = '%s %s %s AND %s AND %s %s' % \
-        (sel, tab, timecond, STTCOND, CPUCOND, critcond + hostcond)
-    params = span + [EPOCH] + crits + hosts
+        (sel, tab, timecond, STTCOND, CPUCOND, critcond + hostcond + usercond)
+    params = span + [EPOCH] + crits + hosts + users
 
     print "Querying..."
     t = time.time()
@@ -233,8 +234,8 @@ def waitdistdbread(logger, connfile, table, begin, end, crits,
     f.close()
     return xs
 
-def dbread(logger, connfile, table, begin, end, crits, hosts, title, binning,
-           count, walltime, waiting, cumuwaiting, started, plan, norm):
+def dbread(logger, connfile, table, begin, end, crits, users, hosts, title,
+           binning, count, walltime, waiting, cumuwaiting, started, plan, norm):
     '''
     Connect to DB, run query and store x and y values into two separate
     lists returned in two separate tuples.
@@ -248,7 +249,10 @@ def dbread(logger, connfile, table, begin, end, crits, hosts, title, binning,
     critcond, crits = mkcritcond(crits)
 
     # Submit hosts
-    hostcond, hosts = mkhostcond(hosts)
+    hostcond, hosts = mkcond(hosts, 'fromHost')
+
+    # Users
+    usercond, users = mkcond(users, 'userName')
 
     # Group
     if started:
@@ -291,8 +295,9 @@ def dbread(logger, connfile, table, begin, end, crits, hosts, title, binning,
 
     # Statement
     stmt = '%s %s %s AND %s AND %s %s %s' % \
-        (sel, tab, timecond, STTCOND, CPUCOND, critcond + hostcond, grpexpr)
-    params = span + [EPOCH] + crits + hosts
+        (sel, tab, timecond, STTCOND, CPUCOND,
+         critcond + hostcond + usercond, grpexpr)
+    params = span + [EPOCH] + crits + hosts + users
 
     print "Querying..."
     t = time.time()
@@ -350,6 +355,9 @@ def main():
     help = "comma-sep'd list or file of comma-sep'd list of queues or groups"
     help += ' (non-stacked, defaults to all, supports %-wildcards)'
     p.add_option("-x", "--what", help=help)
+    help = "comma-sep'd list or file of comma-sep'd list of users"
+    help += ' (non-stacked, defaults to all, supports %-wildcards)'
+    p.add_option("-y", "--users", help=help)
     help = "comma-sep'd list or file of comma-sep'd list of submit hosts"
     help += ' (non-stacked, defaults to all, supports %-wildcards)'
     p.add_option("-m", "--fromhosts", help=help)
@@ -447,12 +455,12 @@ def main():
     elif opts.waitdist:
         try:
             # Set a title
-            title = mktitle(opts.title, opts.what, opts.fromhosts)
+            title = mktitle(opts.title, opts.what, opts.users, opts.fromhosts)
 
             # Get data
             xs = waitdistdbread(logger, opts.connfile, opts.table, opts.begin,
-                                opts.end, opts.what, opts.fromhosts, title,
-                                opts.plan, norm)
+                                opts.end, opts.what, opts.users, opts.fromhosts,
+                                title, opts.plan, norm)
 
             # XXX What not use label()?
 
@@ -494,7 +502,7 @@ def main():
             return 1
     else:
         # Set a title
-        title = mktitle(opts.title, opts.what, opts.fromhosts)
+        title = mktitle(opts.title, opts.what, opts.users, opts.fromhosts)
 
         # Get data
         try:
@@ -502,8 +510,8 @@ def main():
                 xs, ys = fileread(title)
             else:
                 xs, ys = dbread(logger, opts.connfile, opts.table, opts.begin,
-                                opts.end, opts.what, opts.fromhosts, title,
-                                opts.binning, opts.count, opts.walltime,
+                                opts.end, opts.what, opts.users, opts.fromhosts,
+                                title, opts.binning, opts.count, opts.walltime,
                                 opts.waiting, opts.cumuwaiting, opts.started,
                                 opts.plan, norm)
         except common.AcctDBError, e:
