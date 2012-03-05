@@ -398,7 +398,7 @@ LOCALTAB = DBTab('loc',
           ['eventTime', 'startTime', 'queue'],
           ['queue', 'eventTime', 'startTime'],
           ['startTime', 'eventTime', 'queue'],  # cpuhours.py: started time
-          # ['submitTime', 'startTime', 'queue'], # cpuhours.py: waiting time
+          ['submitTime', 'startTime', 'queue'], # cpuhours.py: waiting time
          ]
 )
 
