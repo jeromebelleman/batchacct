@@ -3,7 +3,7 @@
 
 Name:           batchacct-common
 Version:        1.1
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Batch Accounting - Common Files
 
 Group:          Development/Languages
@@ -41,6 +41,7 @@ rm -rf $RPM_BUILD_ROOT
 %config(noreplace) %{_sysconfdir}/batchacct
 %config(noreplace) %{_localstatedir}/log/batchacct
 %config(noreplace) %{_localstatedir}/run/batchacct
+%config(noreplace) %{_sysconfdir}/logrotate.d/batchacct
 %doc
 
 

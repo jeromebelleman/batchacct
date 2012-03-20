@@ -8,6 +8,7 @@ setup(name='batchacct-common',
       py_modules=['batchacct.common'],
       data_files=[
                     ('/etc/batchacct', ['connection']),
+                    ('/etc/logrotate.d', ['logrotate/batchacct']),
                     ('/var/log/batchacct', []),
                     ('/var/run/batchacct', []),
                  ]
