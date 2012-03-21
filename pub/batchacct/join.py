@@ -20,11 +20,12 @@ RESITE = re.compile('DC_(?P<site>[^_]+)')
 REGUSER = re.compile('CN_(?P<guser>[^_]+)')
 PORT = 61613
 QUEUE = '/queue/apel'
-HEADER = 'APEL-individual-job-message: v0.1\n'
+HEADER = 'APEL-individual-job-message: v0.2\n'
 BUNCH = 1000 # SQL can't take more than that
 NONLCG = '/local-nonlcg'
 EPOCH = datetime.datetime(1970, 1, 1, 1, 0)
 LOGFILE = '/var/log/batchacct/batchacct-pub.log'
+GRIDCECOND = "(lrmsId IS NOT NULL OR queue NOT LIKE 'grid_%')"
 
 class APELFieldError(Exception):
     def __init__(self, field):
@@ -226,13 +227,16 @@ def main():
     fields = [
         APELField('Site', val=conf['site']),
         APELField('SubmitHost', ['%s.ceId' % ce], mty='LOCAL'),
-        APELField('LocalJobID', ['%s.jobId' % local, '%s.idx' % local],
+        # Was LocalJobID:
+        APELField('LocalJobId', ['%s.jobId' % local, '%s.idx' % local],
                   fn=jobid),
-        APELField('LocalUserID', ['%s.userName' % local]),
+        # Was LocalUserID:
+        APELField('LocalUserId', ['%s.userName' % local]),
         #APELField('GlobalUserName', ['%s.holderSubject' % ce]),
         #APELField('UserFQAN',
         #          ['%s.chargedSAAP' % local, '%s.attribute' % ce], fn=fqan),
-        APELField('UserFQAN',
+        # Was UserFQAN:
+        APELField('FQAN',
                   ['%s.chargedSAAP' % local, '%s.userFQAN' % ce], fn=fqan),
         APELField('WallDuration',
                   ['%s.eventTime' % local, '%s.startTime' % local], fn=wall),
@@ -244,8 +248,10 @@ def main():
         APELField('EndTime', ['%s.eventTime' % local], fn=ts),
         APELField('MemoryReal', ['%s.maxRMem' % local]),
         APELField('MemoryVirtual', ['%s.maxRSwap' % local]),
-        APELField('ScalingFactorUnit', val=conf['unit']),
-        APELField('ScalingFactor', ['%s.hostFactor' % local], fn=factor),
+        # Was ScalingFactorUnit:
+        APELField('ServiceLevelType', val=conf['unit']),
+        # Was ScalingFactor:
+        APELField('ServiceLevel', ['%s.hostFactor' % local], fn=factor),
              ]
 
     conf['fields'] = conf['fields'].split()
@@ -323,11 +329,9 @@ def main():
     try:
         select =  "SELECT %s" % ', '.join(', '.join(c.col) for c in dbcols)
         tables = "FROM %s LEFT JOIN %s" % (common.LOCALTAB, common.CETAB)
-        #tables = "FROM %s, %s" % (common.LOCALTAB, common.CETAB)
         on = "ON %s.jobId = %s.lrmsId" % (common.LOCALTAB, common.CETAB)
-        #on = "WHERE %s.jobId = %s.lrmsId" % (common.LOCALTAB, common.CETAB)
-        where = "WHERE %s.published = :e AND %s AND %s" % \
-            (common.LOCALTAB, common.STTCOND, common.CPUCOND)
+        where = "WHERE published = :e AND %s AND %s AND %s" % \
+            (GRIDCECOND, common.STTCOND, common.CPUCOND)
         stmt = '%s %s %s %s' % (select, tables, on, where)
         cursor.execute(stmt, [EPOCH, EPOCH])
     except cx_Oracle.DatabaseError, e:
