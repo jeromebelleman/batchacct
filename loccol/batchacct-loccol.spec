@@ -3,7 +3,7 @@
 
 Name:           batchacct-loccol
 Version:        1.1
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Batch Accounting - Local Collection
 
 Group:          Development/Languages

@@ -180,6 +180,23 @@ def main():
     logger.addHandler(h)
     logger.setLevel(logging.INFO)
 
+    # Try to connect before daemonising to exit with a useful code
+    try:
+        if not options.dryrun:
+            logger.info("Trying DB connection...")
+            connection = common.connect(logger, options.connfile)
+            connection.close()
+    except common.AcctDBError, e:
+        logger.error(e)
+        return 1
+
+    # Daemonise
+    try:
+        if common.daemonise(logger, options.pidfile) > 0:
+            return 0
+    except common.DaemonError:
+        return 1
+
     try:
         # Set up accounting DB connection
         if options.dryrun:
@@ -192,13 +209,6 @@ def main():
         acctfile = common.accounting(logger, options.acctfile)
     except common.AcctDBError, e:
         logger.error(e)
-        return 1
-
-    # Daemonise (after you do the risky stuff to have a chance to exit 1)
-    try:
-        if common.daemonise(logger, options.pidfile) > 0:
-            return 0
-    except common.DaemonError:
         return 1
 
     # Set up pyinotify
