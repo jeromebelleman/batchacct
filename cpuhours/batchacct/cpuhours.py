@@ -7,6 +7,7 @@ import sys
 import os, os.path
 import string
 import time
+import math
 from itertools import izip, islice
 # Let's not look at the exit status or info: guess a job can run, consume & fail
 from common import STTCOND, CPUCOND
@@ -173,7 +174,7 @@ def mkcond(items, column):
                                               for i, op in enumerate(fops)])
     return itemcond, items
 
-def waitdistdbread(logger, connfile, table, begin, end, crits, users, hosts,
+def walldistdbread(logger, connfile, table, begin, end, crits, users, hosts,
                    title, plan, norm):
     '''
     Connect to DB, run query and store x values into a list which is returned.
@@ -385,9 +386,11 @@ def main():
     p.add_option("-v", "--waiting", action='store_true', help=help)
     help = 'plot cumulative waiting time instead of CPU time'
     p.add_option("-u", "--cumuwaiting", action='store_true', help=help)
-    help = 'plot distribution of waiting time'
-    p.add_option("-d", "--waitdist", action='store_true', help=help)
-    help = 'cumulative distribution of waiting time in percent (only with -d)'
+    help = "histogram distribution rightmost in seconds (defaults to max)"
+    p.add_option('--crop', type='int', help=help)
+    help = 'plot distribution of wall time'
+    p.add_option("--walldist", action='store_true', help=help)
+    help = 'percent waiting time cumulative distribution (with --walldist)'
     p.add_option("-q", "--percent", action='store_true', help=help)
     help = 'binning (any of MI, HH24, DDD, WW, defaults to %s)' % BINNING
     # 'a' for aggregate
@@ -452,17 +455,43 @@ def main():
         fig.autofmt_xdate()
         plt.title(opts.stack)
         plt.savefig(opts.stack + '-stacked.pdf')
-    elif opts.waitdist:
+    elif opts.walldist:
         try:
             # Set a title
             title = mktitle(opts.title, opts.what, opts.users, opts.fromhosts)
 
             # Get data
-            xs = waitdistdbread(logger, opts.connfile, opts.table, opts.begin,
+            xs = walldistdbread(logger, opts.connfile, opts.table, opts.begin,
                                 opts.end, opts.what, opts.users, opts.fromhosts,
                                 title, opts.plan, norm)
 
             # XXX What not use label()?
+
+            # Crop (logic in hours)
+            if opts.crop and opts.crop / 60 / 60 < max(xs):
+                xmax = opts.crop / 60 / 60
+            else:
+                xmax = max(xs)
+
+            # Pick sensible unit and binning (logic in hours)
+            if xmax < .5:           # If < 30 minutes, then 10s/bin
+                unit = 'minute'         # 30 minutes in minutes easy to fathom
+                xs = [x * 60 for x in xs]
+                xright = 30
+                binning = xright / (10. / 60)
+            elif xmax < 3:          # If < 3 hour,     then 1min/bin
+                unit = 'minute'         # 3 hours in minutes easy to fathom
+                xs = [x * 60 for x in xs]
+                xright = 180
+                binning = xright
+            elif xmax < 24:         # If < 24 hour,    then 10min/bin
+                unit = 'hours'          # 24 hours in hours easy to fathom
+                xright = 24
+                binning = xright / (10. / 60)
+            else:                   # Otherwise,            1h/bin
+                unit = 'hours'          # Hours should still be OK
+                xright = math.ceil(xmax)
+                binning = xright
 
             # Plot histogram
             print "Plotting..."
@@ -470,15 +499,10 @@ def main():
             ax1 = fig.add_subplot(111)
             for l in ax1.get_xticklabels():
                 l.set_rotation(30)
-            #n, bins, _ = ax1.hist(xs, log=opts.log, color=opts.colour)
-            # Can't easily get round bins (e.g. exactly one hour) because
-            # bins can't easily be of different size.
-            binning = (DELTA[opts.binning].days * 24 * 60 * 60 + \
-                DELTA[opts.binning].seconds) / 60. / 60.
-            n, bins, _ = ax1.hist(xs, bins=max(xs) / binning, log=opts.log,
-                color=opts.colour)
+            n, bins, _ = ax1.hist(xs, bins=binning, log=opts.log,
+                color=opts.colour, range=(0, xright))
             plt.ylabel('number of jobs')
-            plt.xlabel('hours')
+            plt.xlabel(unit)
 
             # Plot cumulated derivative
             ax2 = plt.twinx()
@@ -493,10 +517,9 @@ def main():
                 plt.yscale('symlog')
             plt.plot(bins[1:], d)
             plt.axis(ymin=0)
-            plt.xticks([round(b, 3) for b in bins])
 
             plt.title(title)
-            plt.savefig(title.translate(TRANS) + '-waitdist')
+            plt.savefig(title.translate(TRANS) + '-walldist')
         except common.AcctDBError, e:
             print >>sys.stderr, e
             return 1
