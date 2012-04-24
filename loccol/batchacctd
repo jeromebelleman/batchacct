@@ -14,7 +14,7 @@ start () {
     daemon --pidfile $PIDFILE --user $USER \
         python /usr/lib/python2.4/site-packages/batchacct/acct.py \
         -c /etc/batchacct/connection \
-        -a /usr/local/lsf/nfs/work/batchint/logdir/lsb.acct \
+        -a /usr/local/lsf/nfs/work/batch/logdir/lsb.acct \
         -l $LOGFILE \
         -p $PIDFILE
     echo

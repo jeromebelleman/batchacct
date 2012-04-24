@@ -3,7 +3,7 @@
 
 Name:           batchacct-loccol
 Version:        1.1
-Release:        2%{?dist}
+Release:        5%{?dist}
 Summary:        Batch Accounting - Local Collection
 
 Group:          Development/Languages
@@ -44,11 +44,20 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %post
-chkconfig --add batchacctd
+/sbin/chkconfig --add batchacctd
 
 
 %preun
-chkconfig --del batchacctd
+if [ $1 -eq 0 ] ; then
+    /sbin/service batchacctd stop
+    /sbin/chkconfig --del batchacctd
+fi
+
+
+%postun
+if [ "$1" -ge "1" ] ; then
+    /sbin/service batchacctd restart
+fi
 
 
 %changelog
