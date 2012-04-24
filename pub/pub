@@ -1,4 +1,5 @@
 site           MYSITE
 unit           Si2k
 factorConstant 10
-fields         Site SubmitHost LocalJobID LocalUserID GlobalUserName UserFQAN WallDuration CpuDuration Processors NodeCount StartTime EndTime MemoryReal MemoryVirtual ScalingFactorUnit ScalingFactor
+fields         Site SubmitHost LocalJobId LocalUserId GlobalUserName FQAN WallDuration CpuDuration Processors NodeCount StartTime EndTime MemoryReal MemoryVirtual ServiceLevelType ServiceLevel Infrastructure
+cluster        batch

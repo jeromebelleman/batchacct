@@ -20,7 +20,8 @@ RESITE = re.compile('DC_(?P<site>[^_]+)')
 REGUSER = re.compile('CN_(?P<guser>[^_]+)')
 PORT = 61613
 QUEUE = '/queue/apel'
-HEADER = 'APEL-individual-job-message: v0.2\n'
+#HEADER = 'APEL-individual-job-message: v0.2\n'
+HEADER = 'APEL-individual-job-message: v1.1\n'
 BUNCH = 1000 # SQL can't take more than that
 NONLCG = '/local-nonlcg'
 EPOCH = datetime.datetime(1970, 1, 1, 1, 0)
@@ -120,6 +121,14 @@ def fqan(chargedSAAP, userfqan):
 
 def jobid(jobid, idx):
     return str(jobid) + '-' + str(idx)
+
+def inf(userfqan):
+    if userfqan is None: # ... 'cause the outer join didn't yield anything there
+        # We're dealing with a local job
+        return 'local'
+    else:
+        # We're dealing with a grid job
+        return 'grid'
 
 ### End of Callbacks ###########################################################
 
@@ -226,12 +235,12 @@ def main():
 
     fields = [
         APELField('Site', val=conf['site']),
-        APELField('SubmitHost', ['%s.ceId' % ce], mty='LOCAL'),
+        APELField('SubmitHost', ['%s.ceId' % ce], mty=conf['cluster']),
         # Was LocalJobID:
         APELField('LocalJobId', ['%s.jobId' % local, '%s.idx' % local],
                   fn=jobid),
-        # Was LocalUserID:
-        APELField('LocalUserId', ['%s.userName' % local]),
+        # Was LocalUserID: don't want to disclose this after all
+        #APELField('LocalUserId', ['%s.userName' % local]),
         #APELField('GlobalUserName', ['%s.holderSubject' % ce]),
         #APELField('UserFQAN',
         #          ['%s.chargedSAAP' % local, '%s.attribute' % ce], fn=fqan),
@@ -252,6 +261,7 @@ def main():
         APELField('ServiceLevelType', val=conf['unit']),
         # Was ScalingFactor:
         APELField('ServiceLevel', ['%s.hostFactor' % local], fn=factor),
+        APELField('Infrastructure', ['%s.userFQAN' % ce], fn=inf),
              ]
 
     conf['fields'] = conf['fields'].split()
